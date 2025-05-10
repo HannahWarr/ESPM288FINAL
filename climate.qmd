@@ -173,6 +173,7 @@ ggplot(ice, aes(x = decimal_date)) +
   scale_linetype_manual(values = c("Greenland" = "solid", "Antarctica" = "solid")) +
   theme_minimal()
 ```
+
 ```{r}
 #if i wanted to split graph into two panels
 
@@ -222,10 +223,10 @@ ggplot(ice_long, aes(x = decimal_date, y = mass, color = location)) +
 #data is collected in mm, with very little uncertainty. Missing values are listed by 99900.00
 ```
 
-
 ## Question 2:
 
 Construct the necessary R code to import this data set as a tidy `Table` object.
+
 ```{r}
 #read in data
 columns = c('type', 'file', 'decimal_date', 'observations', 'weighted_observations', 'GMSL_TOPEX', 'std_GMSL_TOPEX', 'unknown', 'GMSL_TOPEX_GIA' , 'std_GMSL_TOPEX_GIA' ,'smoothed_GMSL', 'smoothed_GMSL_nosignal')
@@ -234,7 +235,6 @@ df <- df[df$type != 999, ]
 df
 
 ```
-
 
 ## Question 3:
 
@@ -251,7 +251,6 @@ ggplot(df, aes(x = decimal_date)) +
 
 ```
 
-
 # Exercise IV: Arctic Sea Ice?
 
 -   <http://nsidc.org/data/G02135>
@@ -263,31 +262,78 @@ ggplot(df, aes(x = decimal_date)) +
 -   Where do these data come from?
 -   What is the uncertainty in measurement? Resolution of the data? Interpretation of missing values?
 
+```{r}
+ # -data is in several csv file with a column for: year, month, data type, region (all N), extent, and area. From what I have seen they are in km
+ # -This comes from NOAA
+ # -Resoultion is 25km*25km. Missing data is recorded by -9999
+```
+
 ## Question 2:
 
 Construct the necessary code to import this data set
 
-``` python
-url=["https://noaadata.apps.nsidc.org/NOAA/G02135/north/monthly/data/N_01_extent_v3.0.csv","https://noaadata.apps.nsidc.org/NOAA/G02135/north/monthly/data/N_02_extent_v3.0.csv"]
+```{r}
+#there is 12 files for each month
+#I need to combine them and read them in
+
+endings = c("N_01_extent_v3.0.csv","N_02_extent_v3.0.csv", "N_03_extent_v3.0.csv", 
+            "N_04_extent_v3.0.csv", "N_05_extent_v3.0.csv", "N_06_extent_v3.0.csv", 
+            "N_07_extent_v3.0.csv", "N_08_extent_v3.0.csv", "N_09_extent_v3.0.csv", 
+            "N_10_extent_v3.0.csv" , "N_11_extent_v3.0.csv", "N_12_extent_v3.0.csv")
+urls = paste0("https://noaadata.apps.nsidc.org/NOAA/G02135/north/monthly/data/", endings)
+
 ```
 
 ## Question 3:
 
 Plot the data and describe the trends you observe.
 
-``` python
-arctic_ice = con.read_csv(url).execute()
+```{r}
+arctic_ice = read_csv(urls) #reading in data
+
+```
+
+```{r}
+arctic_ice = arctic_ice %>%
+  filter(!if_any(everything(), ~ . == -9999)) %>% #gets rid of the missing data
+  mutate(decimal_date = year + (mo - 1) / 12) #combine month and year data into a decimal date column
 arctic_ice
 ```
 
-
-
-``` python
-arctic_ice = arctic_ice[~(arctic_ice == -9999).any(axis=1)]
-so.Plot(arctic_ice, x="area", y="year").add(so.Lines())
+```{r}
+#this is kind of messy to look at. I think maybe I should average the year and plot that
+ggplot(arctic_ice, aes(x = decimal_date)) +
+  geom_line(aes(y = extent)) + 
+  labs(title = "Sea Ice",
+       x = "Year",
+       y = "Northern Sea Ice Area (km)") +
+  theme_minimal()
 ```
 
-![png](climate_files/climate_39_0.png)
+```{r}
+#time to adjust the data again
+arc_ice <- arctic_ice %>%
+  group_by(year) %>% 
+  summarise(avg_extent = mean(extent)) %>% #collect average of each year so to not include seasonal variation
+  filter(year != 2025) #2025 is not finished, I noticed that its area seemed unusually high
+
+```
+
+```{r}
+#plot data
+ggplot(arc_ice, aes(x = year)) +
+  geom_line(aes(y = avg_extent)) + 
+  geom_smooth(aes(y = avg_extent)) + #i think a smoothing is necessary 
+  labs(title = "Sea Ice",
+       x = "Year",
+       y = "Northern Sea Ice Area (km)") +
+  theme_minimal()
+```
+
+```{r}
+#yay looks great
+#this is where I should start mapping this data
+```
 
 # Exercise V: Longer term trends in CO2 Records
 
@@ -305,329 +351,79 @@ Vostok Core, back to 400,000 yrs before present day
 -   Describe the data set: what are the columns and units? Where do the numbers come from?
 -   What is the uncertainty in measurment? Resolution of the data? Interpretation of missing values?
 -   Read in and prepare data for analysis.
--   Reverse the ordering to create a chronological record.\
+-   Reverse the ordering to create a chronological record.
 -   Plot data
 -   Consider various smoothing windowed averages of the data.
 -   Join this series to Mauna Loa data
 -   Plot joined data
 -   Describe your conclusions
 
-``` python
+```{r}
 ## Data set description
  # columns: Depth (m), Age of the ice (yr BP), Mean age of the air (yr BP), CO2 concentration (ppmv) and data comes from vostok ice core
- #
 # data kinda difficult to collect so go to website
 # https://data.ess-dive.lbl.gov/view/doi:10.3334/CDIAC/ATG.009
 # had to download the data and store it 'locally' on the server bc website didnt work
     #I fear lines may have been skipped because the data seems to have several tabs
-    # Check for missing values
-missing_values = df.isnull().sum()
-print(missing_values)
-```
+    # Check for missing values (there are none that I can find)
 
-    date          0
-    greenland     0
-    antarctica    0
-    dtype: int64
-
-``` python
-columns = ['Depth (m)', 'Age of the ice (yr BP)', 'Mean age of the air (yr BP)', 'CO2 concentration (ppmv)']
-df = pd.read_csv('/home/jovyan/climate-teams-wasp-policy/vostok.icecore (3).co2', 
-                   header=None, 
-                   skiprows=21, 
-                   names=columns, 
-                   sep='\t')
+df = read_table("~/ESPM288FINAL/vostok.icecore (3).co2" , skip = 20, col_names = c("depth", "age_of_ice","mean_age_air", "CO2"))
 df
-
-print(df.iloc[115:125]) # Just checking that the data looks right with the extra tabs
 ```
 
-         Depth (m)  Age of the ice (yr BP)  Mean age of the air (yr BP)  \
-    115    2107.05                  154557                       149157   
-    116    2116.00                  155625                       150303   
-    117    2117.00                  155743                       150423   
-    118    2131.10                  157456                       151854   
-    119    2157.00                  160293                       154471   
-    120    2164.00                  161077                       155299   
-    121    2167.20                  161451                       155707   
-    122    2203.00                  165646                       160494   
-    123    2207.30                  166193                       161037   
-    124    2225.00                  168391                       162996   
-
-         CO2 concentration (ppmv)  
-    115                     203.0  
-    116                     191.9  
-    117                     188.9  
-    118                     200.6  
-    119                     189.0  
-    120                     185.5  
-    121                     187.5  
-    122                     204.4  
-    123                     196.5  
-    124                     191.6  
-
-``` python
-#Now to reverse the order of the data so its in chronological order
-
-columns = ['Depth (m)', 'Age of the ice (yr BP)', 'Mean age of the air (yr BP)', 'CO2 concentration (ppmv)']
-df = pd.read_csv('/home/jovyan/climate-teams-wasp-policy/vostok.icecore (3).co2', 
-                   header=None, 
-                   skiprows=21, 
-                   names=columns, 
-                   sep='\t')
-df_reversed = df.iloc[::-1] #this should reverse the order of the data
-print(df_reversed)
+```{r}
+sum(is.na(df)) #missing data check
 ```
 
-         Depth (m)  Age of the ice (yr BP)  Mean age of the air (yr BP)  \
-    362    3304.40                  419328                       417160   
-    361    3301.40                  417638                       415434   
-    360    3299.01                  416332                       414085   
-    359    3292.91                  413010                       410831   
-    358    3289.45                  411202                       409022   
-    ..         ...                     ...                          ...   
-    4       250.30                   10579                         7327   
-    3       228.60                    9523                         6220   
-    2       177.40                    7043                         3833   
-    1       173.10                    6828                         3634   
-    0       149.10                    5679                         2342   
-
-         CO2 concentration (ppmv)  
-    362                     277.6  
-    361                     286.9  
-    360                     285.5  
-    359                     276.3  
-    358                     283.7  
-    ..                        ...  
-    4                       254.6  
-    3                       262.2  
-    2                       268.1  
-    1                       272.8  
-    0                       284.7  
-
-    [363 rows x 4 columns]
-
-``` python
-#Now to plot the data
-columns = ['Depth (m)', 'Age of the ice (yr BP)', 'Mean age of the air (yr BP)', 'CO2 concentration (ppmv)']
-df = pd.read_csv('/home/jovyan/climate-teams-wasp-policy/vostok.icecore (3).co2', 
-                   header=None, 
-                   skiprows=21, 
-                   names=columns, 
-                   sep='\t')
-df_reversed = df.iloc[::-1] #this should reverse the order of the data
-so.Plot(df_reversed, x="Mean age of the air (yr BP)", y="CO2 concentration (ppmv)").add(so.Lines())
+```{r}
+#plotting the data
+ggplot(df, aes(x = age_of_ice * -1 + 2025)) + #reverse the data on the graph plus the year we are in
+  geom_line(aes(y = CO2)) + 
+  scale_x_continuous(labels = scales::comma) +
+  labs(title = "CO2 in Atmosphere",
+       x = "Year",
+       y = "CO2 concentration (ppmv)") +
+  theme_minimal()
 ```
 
-![png](climate_files/climate_44_0.png)
-
-``` python
-columns = ['Depth (m)', 'Age of the ice (yr BP)', 'Mean age of the air (yr BP)', 'CO2 concentration (ppmv)']
-df = pd.read_csv('/home/jovyan/climate-teams-wasp-policy/vostok.icecore (3).co2', 
-                   header=None, 
-                   skiprows=21, 
-                   names=columns, 
-                   sep='\t')
-df_reversed = df.iloc[::-1] #this should reverse the order of the data
-#I am going to simply the data so maybe it will combine easier later on 
-new_df2 = df_reversed[['Mean age of the air (yr BP)', 'CO2 concentration (ppmv)']]
-new_df2
-```
-
-<div>
-
-```{=html}
-<style scoped>
-    .dataframe tbody tr th:only-of-type {
-        vertical-align: middle;
-    }
-
-    .dataframe tbody tr th {
-        vertical-align: top;
-    }
-
-    .dataframe thead th {
-        text-align: right;
-    }
-</style>
-```
-|      | Mean age of the air (yr BP) | CO2 concentration (ppmv) |
-|------|-----------------------------|--------------------------|
-| 362  | 417160                      | 277.6                    |
-| 361  | 415434                      | 286.9                    |
-| 360  | 414085                      | 285.5                    |
-| 359  | 410831                      | 276.3                    |
-| 358  | 409022                      | 283.7                    |
-| \... | \...                        | \...                     |
-| 4    | 7327                        | 254.6                    |
-| 3    | 6220                        | 262.2                    |
-| 2    | 3833                        | 268.1                    |
-| 1    | 3634                        | 272.8                    |
-| 0    | 2342                        | 284.7                    |
-
-<p>363 rows × 2 columns</p>
-
-</div>
-
-``` python
+```{r}
 #time to combine this with the Muana Loa data
 
-columns = ['year', 'month', 'decimal_date', 'average', 'smooth', 'std_days', 'uncertainty', 'empty']
-df = pd.read_csv("https://gml.noaa.gov/webdata/ccgg/trends/co2/co2_mm_mlo.txt", sep="\s+", comment="#", names= columns)
-df
-#now I need year to change to 'years old'
-columns = ['year', 'month', 'decimal_date', 'average', 'smooth', 'std_days', 'uncertainty', 'empty']
-df = pd.read_csv("https://gml.noaa.gov/webdata/ccgg/trends/co2/co2_mm_mlo.txt", sep="\s+", comment="#", names=columns)
+columns = c('year', 'month', 'decimal_date', 'average', 'smooth', 'std_days', 'uncertainty', 'empty')
+df2 = read_table("https://gml.noaa.gov/webdata/ccgg/trends/co2/co2_mm_mlo.txt", comment="#", col_names=columns)
 
-# Perform the arithmetic operation
-def_age['age'] = 2025.5 - df['decimal_date']
+# Perform the arithmetic operation to 'years ago'
+df2 <- df2 %>%
+  mutate(age = 2025.5 - decimal_date)
 
-# Print the first few rows of the updated new DataFrame
-print(def_age.head())
 ```
 
-       year  month  decimal_date  average  smooth  std_days  uncertainty  empty  \
-    0  1958      3     1958.2027   315.71  314.44        -1        -9.99  -0.99   
-    1  1958      4     1958.2877   317.45  315.16        -1        -9.99  -0.99   
-    2  1958      5     1958.3699   317.51  314.69        -1        -9.99  -0.99   
-    3  1958      6     1958.4548   317.27  315.15        -1        -9.99  -0.99   
-    4  1958      7     1958.5370   315.87  315.20        -1        -9.99  -0.99   
-
-           age  
-    0  67.2973  
-    1  67.2123  
-    2  67.1301  
-    3  67.0452  
-    4  66.9630  
-
-``` python
-#unsure if this is necessary but I am simplying the amount of data from Mauna Loa
-columns = ['year', 'month', 'decimal_date', 'average', 'smooth', 'std_days', 'uncertainty', 'empty']
-df = pd.read_csv("https://gml.noaa.gov/webdata/ccgg/trends/co2/co2_mm_mlo.txt", sep="\s+", comment="#", names=columns)
-
-# Perform the arithmetic operation
-def_age['age'] = 2025.5 - df['decimal_date']
-new_df1 = def_age[['average', 'age']]
-new_df1
-```
-
-<div>
-
-```{=html}
-<style scoped>
-    .dataframe tbody tr th:only-of-type {
-        vertical-align: middle;
-    }
-
-    .dataframe tbody tr th {
-        vertical-align: top;
-    }
-
-    .dataframe thead th {
-        text-align: right;
-    }
-</style>
-```
-|      | average | age     |
-|------|---------|---------|
-| 0    | 315.71  | 67.2973 |
-| 1    | 317.45  | 67.2123 |
-| 2    | 317.51  | 67.1301 |
-| 3    | 317.27  | 67.0452 |
-| 4    | 315.87  | 66.9630 |
-| \... | \...    | \...    |
-| 798  | 422.03  | 0.7917  |
-| 799  | 422.38  | 0.7083  |
-| 800  | 423.85  | 0.6250  |
-| 801  | 425.40  | 0.5417  |
-| 802  | 426.65  | 0.4583  |
-
-<p>803 rows × 2 columns</p>
-
-</div>
-
-``` python
+```{r}
 #I am going to try to combine the data now (wish me luck)
 
-columns = ['Depth (m)', 'Age of the ice (yr BP)', 'Mean age of the air (yr BP)', 'CO2 concentration (ppmv)']
-df = pd.read_csv('/home/jovyan/climate-teams-wasp-policy/vostok.icecore (3).co2', 
-                   header=None, 
-                   skiprows=21, 
-                   names=columns, 
-                   sep='\t')
-df_reversed = df.iloc[::-1] #this should reverse the order of the data
-print(df_reversed)
-#I am going to simply the data so maybe it will combine easier later on 
-new_df2 = df_reversed[['Mean age of the air (yr BP)', 'CO2 concentration (ppmv)']]
+df_monoloa <- df2 %>%
+  select(age, average) %>%
+  rename(age_value = age, co2_value = average)
 
-#now I need year to change to 'years old'
-columns2 = ['year', 'month', 'decimal_date', 'average', 'smooth', 'std_days', 'uncertainty', 'empty']
-df = pd.read_csv("https://gml.noaa.gov/webdata/ccgg/trends/co2/co2_mm_mlo.txt", sep="\s+", comment="#", names=columns2)
+df_cores <- df %>%
+  select(age_of_ice, CO2) %>%
+  rename(age_value = age_of_ice, co2_value = CO2)
 
-# Perform the arithmetic operation
-def_age['age'] = 2025.5 - df['decimal_date']
+# Now bind the rows together
+CO2final <- bind_rows(df_monoloa, df_cores)
 
-new_df1 = def_age[['average', 'age']]
-
-#I think first I need to rename the columns so they fit together
-column_mapping = {
-    'average': 'CO2 concentration (ppmv)',
-    'age': 'Mean age of the air (yr BP)'
-}
-# Rename the columns in the new_df1 and new_df2 DataFrames
-new_df1_renamed = new_df1.rename(columns=column_mapping)
-new_df2_renamed = new_df2.rename(columns=column_mapping)
-# Combine (the ai says concatenate) the DataFrames
-df_concat = pd.concat([new_df1_renamed, new_df2_renamed])
-
-# Print the resulting data table
-print(df_concat)
-
-#I mean that looks like it worked (YAY?!) Now to plot the data which I will probably have to flip it and reverse it :/
-    #Maybe I should instead make the core data negative?
 ```
 
-         Depth (m)  Age of the ice (yr BP)  Mean age of the air (yr BP)  \
-    362    3304.40                  419328                       417160   
-    361    3301.40                  417638                       415434   
-    360    3299.01                  416332                       414085   
-    359    3292.91                  413010                       410831   
-    358    3289.45                  411202                       409022   
-    ..         ...                     ...                          ...   
-    4       250.30                   10579                         7327   
-    3       228.60                    9523                         6220   
-    2       177.40                    7043                         3833   
-    1       173.10                    6828                         3634   
-    0       149.10                    5679                         2342   
+```{r}
 
-         CO2 concentration (ppmv)  
-    362                     277.6  
-    361                     286.9  
-    360                     285.5  
-    359                     276.3  
-    358                     283.7  
-    ..                        ...  
-    4                       254.6  
-    3                       262.2  
-    2                       268.1  
-    1                       272.8  
-    0                       284.7  
-
-    [363 rows x 4 columns]
-        CO2 concentration (ppmv)  Mean age of the air (yr BP)
-    0                     315.71                      67.2973
-    1                     317.45                      67.2123
-    2                     317.51                      67.1301
-    3                     317.27                      67.0452
-    4                     315.87                      66.9630
-    ..                       ...                          ...
-    4                     254.60                    7327.0000
-    3                     262.20                    6220.0000
-    2                     268.10                    3833.0000
-    1                     272.80                    3634.0000
-    0                     284.70                    2342.0000
-
-    [1166 rows x 2 columns]
-
-``` python
+ggplot(CO2final, aes(x = age_value * -1 )) + #reverse the data on the graph 
+  geom_line(aes(y = co2_value)) + 
+  scale_x_continuous(labels = scales::comma) +
+  geom_smooth(aes(y = co2_value)) + #i think a smoothing is necessary 
+  labs(title = "CO2 in Atmosphere",
+       x = "Years Ago",
+       y = "CO2 concentration (ppmv)") +
+  theme_minimal()
 ```
+
+OH NO it looks like there is CO2 cycles in the past except the last 100 years or so there is is ton of CO2 in the atmosphere.
