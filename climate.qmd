@@ -334,6 +334,19 @@ ggplot(arc_ice, aes(x = year)) +
 #yay looks great
 #this is where I should start mapping this data
 ```
+# Exercise IV for the final
+
+I am going to try to make an interactive map from the geotiff data to map the above data
+
+    <https://noaadata.apps.nsidc.org/NOAA/G02135/north/monthly/geotiff/>
+
+```{r}
+library(leaflet)
+install.packages(terra)
+library(terra)
+r <- rast("https://noaadata.apps.nsidc.org/NOAA/G02135/north/monthly/geotiff/01_Jan/N_197901_concentration_v3.0.tif")
+
+```
 
 # Exercise V: Longer term trends in CO2 Records
 
